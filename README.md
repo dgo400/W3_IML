@@ -1,7 +1,6 @@
 # Work 3 - IML: Clustering and visualization
 
-Project for the Introduction to Machine Learning course. It applies and compares
-clustering algorithms on three ARFF datasets (`iris`, `satimage` and `horse-colic`):
+This project applies and compares clustering algorithms on three .arff files:
 DBSCAN and BIRCH from sklearn, plus our own K-Means, improved K-Means,
 PAM/CLARA/CLARANS/K-Prototypes and Fuzzy C-Means. It also includes validation
 metrics and dimensionality reduction (our own PCA, plus sklearn PCA and Isomap) for visualization.

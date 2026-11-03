@@ -23,6 +23,6 @@ def load_arff(file_path):
 
 
 if __name__ == "__main__":
-    for name in ["iris", "satimage", "horse-colic"]:
+    for name in ["kr-vs-kp", "satimage", "horse-colic"]:
         X, y = load_arff("data/" + name + ".arff")
         print(name, X.shape, "Missing values:", X.isna().sum().sum())
