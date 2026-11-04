@@ -41,3 +41,14 @@ Activate the environment and check that it works:
 .venv\Scripts\activate          # Linux/macOS: source .venv/bin/activate
 python src/parser.py
 ```
+
+## Running DBSCAN Experiments
+
+To execute the DBSCAN experiments across both `kr-vs-kp` and `horse-colic` datasets, testing metrics (Euclidean, Manhattan, Cosine), algorithms (`auto`, `ball_tree`, `kd_tree`, `brute`), and parameter sweeps:
+
+```bash
+python src/dbscan.py
+```
+
+Results (clusters, noise points, silhouette, Davies-Bouldin, Calinski-Harabasz, ARI, purity, and runtime) will be saved to:
+`results/dbscan_results.csv`
