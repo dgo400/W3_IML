@@ -103,6 +103,33 @@ def compute_purity(y_true, labels, ignore_noise=True):
     return float(correct / len(y_true))
 
 
+def compute_f_measure(y_true, labels, ignore_noise=True):
+    """
+    Compute clustering F-measure: majority class mapped F1 score.
+    """
+    from sklearn.metrics import f1_score
+
+    y_true = np.asarray(y_true)
+    labels = np.asarray(labels)
+    if ignore_noise:
+        mask = (labels != -1)
+        if not np.any(mask):
+            return 0.0
+        y_true = y_true[mask]
+        labels = labels[mask]
+    if len(y_true) == 0:
+        return 0.0
+
+    mapped_pred = np.empty_like(y_true)
+    for cluster_id in np.unique(labels):
+        cluster_mask = (labels == cluster_id)
+        classes, counts = np.unique(y_true[cluster_mask], return_counts=True)
+        majority_class = classes[np.argmax(counts)]
+        mapped_pred[cluster_mask] = majority_class
+
+    return float(f1_score(y_true, mapped_pred, average="weighted", zero_division=0))
+
+
 def evaluate_clustering(X, y_true, labels, metric="euclidean"):
     """
     Compute comprehensive internal and external clustering validation metrics.
@@ -114,6 +141,7 @@ def evaluate_clustering(X, y_true, labels, metric="euclidean"):
     External:
       - ari (Adjusted Rand Index): agreement with ground truth adjusted for chance
       - purity: fraction of dominant ground-truth class per cluster
+      - f_measure: weighted F1-measure under optimal majority mapping
     """
     from sklearn.metrics import (
         silhouette_score,
@@ -138,11 +166,13 @@ def evaluate_clustering(X, y_true, labels, metric="euclidean"):
         "calinski_harabasz": None,
         "ari": None,
         "purity": None,
+        "f_measure": None,
     }
 
     # External metrics
     results["ari"] = round(float(adjusted_rand_score(y_true, labels)), 4)
     results["purity"] = round(compute_purity(y_true, labels, ignore_noise=True), 4)
+    results["f_measure"] = round(compute_f_measure(y_true, labels, ignore_noise=True), 4)
 
     # Internal metrics (require at least 2 non-noise clusters and >= 2 points)
     clustered_mask = labels != -1

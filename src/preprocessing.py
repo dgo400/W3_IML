@@ -21,6 +21,47 @@ except ModuleNotFoundError:
     from parser import load_arff
 
 
+def preprocess(X):
+    """
+    Unified preprocessing function as specified in the team plan:
+    Takes feature DataFrame X and returns a preprocessed numeric 2D numpy array:
+      - Numeric columns: missing values imputed with median, scaled with StandardScaler.
+      - Nominal/Categorical columns: missing values imputed with mode, one-hot encoded.
+
+    Args:
+        X (pd.DataFrame): Raw input features.
+
+    Returns:
+        np.ndarray: Fully numeric preprocessed feature array.
+    """
+    if not isinstance(X, pd.DataFrame):
+        X = pd.DataFrame(X)
+
+    num_cols = X.select_dtypes(include=[np.number]).columns.tolist()
+    cat_cols = X.select_dtypes(exclude=[np.number]).columns.tolist()
+
+    parts = []
+
+    if num_cols:
+        num_imputer = SimpleImputer(strategy="median")
+        X_num_imp = num_imputer.fit_transform(X[num_cols])
+        scaler = StandardScaler()
+        X_num_scaled = scaler.fit_transform(X_num_imp)
+        parts.append(pd.DataFrame(X_num_scaled, columns=num_cols, index=X.index))
+
+    if cat_cols:
+        cat_imputer = SimpleImputer(strategy="most_frequent")
+        X_cat_imp = cat_imputer.fit_transform(X[cat_cols])
+        df_cat = pd.DataFrame(X_cat_imp, columns=cat_cols, index=X.index)
+        df_cat_enc = pd.get_dummies(df_cat, drop_first=False, dtype=float)
+        parts.append(df_cat_enc)
+
+    if parts:
+        X_proc = pd.concat(parts, axis=1)
+        return X_proc.values
+    return np.empty((len(X), 0))
+
+
 def preprocess_kr_vs_kp(file_path="data/kr-vs-kp.arff"):
     """
     Preprocess the King-Rook vs King-Pawn (kr-vs-kp) dataset.
