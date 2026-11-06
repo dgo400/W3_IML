@@ -61,3 +61,15 @@ python src/dbscan.py --dataset kr-vs-kp --eps 2.0 --min-samples 5 --metric eucli
 python src/dbscan.py --dataset horse-colic --eps 0.22 --min-samples 5 --metric cosine
 ```
 *(Note: metric `cosine` automatically enforces `algorithm='brute'`)*
+
+### 3. Generate diagnostic & report plots
+To generate the $k$-distance elbow curves and parameter sensitivity curves:
+
+```bash
+python src/dbscan.py --plot
+```
+
+Figures are saved to `results/figures/`:
+- `k_distance_plots.png`: $k$-NN distance distributions across metrics (knee heuristic for $eps$)
+- `sensitivity_kr-vs-kp.png`: $eps$ vs clusters, noise ratio, and silhouette for `kr-vs-kp`
+- `sensitivity_horse-colic.png`: $eps$ vs clusters, noise ratio, and silhouette for `horse-colic`

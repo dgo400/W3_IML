@@ -349,6 +349,11 @@ def parse_arguments():
         help="Run full parameter sweep across all datasets and hyperparameters.",
     )
     parser.add_argument(
+        "--plot",
+        action="store_true",
+        help="Generate and save k-distance knee plots and sensitivity curves.",
+    )
+    parser.add_argument(
         "--output-csv",
         default="results/dbscan_results.csv",
         help="Destination path for saving parameter sweep CSV.",
@@ -356,8 +361,97 @@ def parse_arguments():
     return parser.parse_args()
 
 
+def generate_plots(output_dir="results/figures", csv_path="results/dbscan_results.csv"):
+    """
+    Generate diagnostic and report plots:
+      1. k-distance (knee) plots for heuristic eps determination.
+      2. Sensitivity curves (eps vs clusters, noise ratio, silhouette).
+    """
+    import matplotlib
+    matplotlib.use("Agg")  # Non-interactive backend
+    import matplotlib.pyplot as plt
+    from sklearn.neighbors import NearestNeighbors
+    import pandas as pd
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    # 1. k-distance plots
+    fig, axes = plt.subplots(1, 2, figsize=(13, 5))
+    k = 5
+
+    for idx, ds_name in enumerate(["kr-vs-kp", "horse-colic"]):
+        ax = axes[idx]
+        X, _, _ = load_dataset(ds_name)
+        for metric in ["euclidean", "cosine", "manhattan"]:
+            nbrs = NearestNeighbors(n_neighbors=k, metric=metric, algorithm="brute").fit(X)
+            distances, _ = nbrs.kneighbors(X)
+            k_distances = np.sort(distances[:, -1])
+            ax.plot(k_distances, label=f"{metric.capitalize()}")
+        ax.set_title(f"k-Distance Plot: {ds_name} (k={k})")
+        ax.set_xlabel("Sorted Points (Ascending)")
+        ax.set_ylabel(f"{k}-NN Distance")
+        ax.legend()
+        ax.grid(True, linestyle="--", alpha=0.6)
+
+    plt.tight_layout()
+    k_dist_path = os.path.join(output_dir, "k_distance_plots.png")
+    plt.savefig(k_dist_path, dpi=300)
+    plt.close()
+    print(f"Saved k-distance plots to: {k_dist_path}")
+
+    # 2. Parameter sensitivity plots from CSV
+    if os.path.exists(csv_path):
+        df = pd.read_csv(csv_path)
+        for ds_name in ["kr-vs-kp", "horse-colic"]:
+            sub_ds = df[(df["dataset"] == ds_name) & (df["algorithm"].isin(["auto", "brute"]))]
+            if sub_ds.empty:
+                continue
+
+            metrics = sub_ds["metric"].unique()
+            fig, axes = plt.subplots(len(metrics), 3, figsize=(15, 3.5 * len(metrics)), sharex=False)
+            if len(metrics) == 1:
+                axes = np.expand_dims(axes, 0)
+
+            for m_idx, m in enumerate(metrics):
+                sub_m = sub_ds[sub_ds["metric"] == m]
+                for ms in sorted(sub_m["min_samples"].unique()):
+                    curve = sub_m[sub_m["min_samples"] == ms].sort_values("eps")
+                    axes[m_idx, 0].plot(curve["eps"], curve["n_clusters"], marker="o", label=f"min_samples={ms}")
+                    axes[m_idx, 1].plot(curve["eps"], curve["noise_ratio"], marker="s", label=f"min_samples={ms}")
+                    axes[m_idx, 2].plot(curve["eps"], curve["silhouette"], marker="^", label=f"min_samples={ms}")
+
+                axes[m_idx, 0].set_ylabel(f"{m.upper()}\nClusters (n)")
+                axes[m_idx, 0].grid(True, linestyle="--", alpha=0.5)
+                axes[m_idx, 0].legend()
+
+                axes[m_idx, 1].set_ylabel("Noise Ratio")
+                axes[m_idx, 1].grid(True, linestyle="--", alpha=0.5)
+                axes[m_idx, 1].legend()
+
+                axes[m_idx, 2].set_ylabel("Silhouette")
+                axes[m_idx, 2].grid(True, linestyle="--", alpha=0.5)
+                axes[m_idx, 2].legend()
+
+                if m_idx == len(metrics) - 1:
+                    axes[m_idx, 0].set_xlabel("eps")
+                    axes[m_idx, 1].set_xlabel("eps")
+                    axes[m_idx, 2].set_xlabel("eps")
+
+            fig.suptitle(f"DBSCAN Parameter Sensitivity: {ds_name}", fontsize=14)
+            plt.tight_layout()
+            sens_path = os.path.join(output_dir, f"sensitivity_{ds_name}.png")
+            plt.savefig(sens_path, dpi=300)
+            plt.close()
+            print(f"Saved sensitivity curves to: {sens_path}")
+
+
 if __name__ == "__main__":
     args = parse_arguments()
+
+    if args.plot:
+        generate_plots(output_dir="results/figures", csv_path=args.output_csv)
+        if not args.sweep and not (args.dataset and args.eps is not None):
+            sys.exit(0)
 
     # If user specifies targeted run parameters
     if args.dataset and args.eps is not None and args.min_samples is not None:
