@@ -303,10 +303,86 @@ def print_summary_table(df_results, dataset_name, metric):
     print(view.to_string(index=False))
 
 
-if __name__ == "__main__":
-    results_df = run_experiments(dataset_names=["kr-vs-kp", "horse-colic"])
+def parse_arguments():
+    """
+    Parse command-line arguments for single-run or sweep experiments.
+    """
+    import argparse
 
-    # Print summary highlights
-    for ds in ["kr-vs-kp", "horse-colic"]:
-        for m in ["euclidean", "cosine", "manhattan"]:
-            print_summary_table(results_df, ds, m)
+    parser = argparse.ArgumentParser(
+        description="DBSCAN Clustering evaluation for Work 3 - IML.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument(
+        "--dataset",
+        choices=["kr-vs-kp", "horse-colic"],
+        default=None,
+        help="Dataset name for targeted single run.",
+    )
+    parser.add_argument(
+        "--eps",
+        type=float,
+        default=None,
+        help="Neighborhood radius (eps).",
+    )
+    parser.add_argument(
+        "--min-samples",
+        type=int,
+        default=None,
+        help="Minimum neighborhood samples for core points.",
+    )
+    parser.add_argument(
+        "--metric",
+        choices=["euclidean", "cosine", "manhattan"],
+        default="euclidean",
+        help="Distance metric.",
+    )
+    parser.add_argument(
+        "--algorithm",
+        choices=["auto", "ball_tree", "kd_tree", "brute"],
+        default="auto",
+        help="Nearest neighbor algorithm (note: cosine requires brute).",
+    )
+    parser.add_argument(
+        "--sweep",
+        action="store_true",
+        help="Run full parameter sweep across all datasets and hyperparameters.",
+    )
+    parser.add_argument(
+        "--output-csv",
+        default="results/dbscan_results.csv",
+        help="Destination path for saving parameter sweep CSV.",
+    )
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    args = parse_arguments()
+
+    # If user specifies targeted run parameters
+    if args.dataset and args.eps is not None and args.min_samples is not None:
+        # Cosine requires brute
+        algo = "brute" if args.metric == "cosine" else args.algorithm
+        print(f"\n=== DBSCAN Single Run: {args.dataset.upper()} ===")
+        print(f"Parameters: eps={args.eps}, min_samples={args.min_samples}, metric={args.metric}, algorithm={algo}")
+        X, y_true, feats = load_dataset(args.dataset)
+        labels, elapsed_sec = run_dbscan(
+            X, eps=args.eps, min_samples=args.min_samples,
+            metric=args.metric, algorithm=algo
+        )
+        metrics = evaluate_clustering(X, y_true, labels, metric=args.metric)
+        print(f"\nExecution time: {elapsed_sec * 1000:.2f} ms")
+        print("Clustering Results & Metrics:")
+        for k, v in metrics.items():
+            print(f"  {k:18s}: {v}")
+    else:
+        # Default / --sweep behavior
+        results_df = run_experiments(
+            dataset_names=["kr-vs-kp", "horse-colic"],
+            output_csv=args.output_csv,
+        )
+
+        # Print summary highlights
+        for ds in ["kr-vs-kp", "horse-colic"]:
+            for m in ["euclidean", "cosine", "manhattan"]:
+                print_summary_table(results_df, ds, m)

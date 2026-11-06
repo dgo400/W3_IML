@@ -44,11 +44,20 @@ python src/parser.py
 
 ## Running DBSCAN Experiments
 
-To execute the DBSCAN experiments across both `kr-vs-kp` and `horse-colic` datasets, testing metrics (Euclidean, Manhattan, Cosine), algorithms (`auto`, `ball_tree`, `kd_tree`, `brute`), and parameter sweeps:
+### 1. Full systematic sweep (default)
+Executes the sweep across both `kr-vs-kp` and `horse-colic` datasets, testing metrics (Euclidean, Manhattan, Cosine), algorithm options (`auto`, `ball_tree`, `kd_tree`, `brute`), and parameter ranges:
 
 ```bash
 python src/dbscan.py
 ```
-
-Results (clusters, noise points, silhouette, Davies-Bouldin, Calinski-Harabasz, ARI, purity, and runtime) will be saved to:
+Results (clusters, noise points, silhouette, Davies-Bouldin, Calinski-Harabasz, ARI, purity, F-measure, and runtime) are saved to:
 `results/dbscan_results.csv`
+
+### 2. Single targeted run with custom hyperparameters
+To test specific hyperparameters:
+
+```bash
+python src/dbscan.py --dataset kr-vs-kp --eps 2.0 --min-samples 5 --metric euclidean
+python src/dbscan.py --dataset horse-colic --eps 0.22 --min-samples 5 --metric cosine
+```
+*(Note: metric `cosine` automatically enforces `algorithm='brute'`)*
