@@ -25,7 +25,7 @@ def run_birch(X, threshold, branching_factor, n_clusters):
 if __name__ == "__main__":
     rows = []
     for name in DATASETS:
-        X, _ = load_arff("data/" + name + ".arff")
+        X, y = load_arff("data/" + name + ".arff")
         X = preprocess(X)
 
         for threshold in THRESHOLDS:
@@ -36,7 +36,7 @@ if __name__ == "__main__":
                     elapsed = time.time() - start
 
                     row = {"dataset": name, "threshold": threshold,
-                           "branching_factor": branching_factor, "n_clusters": n_clusters}
+                           "branching_factor": branching_factor, "k": n_clusters}
                     row.update(evaluate(X, y, labels))
                     row["time"] = elapsed
                     rows.append(row)
