@@ -5,8 +5,8 @@ import pandas as pd
 from sklearn.cluster import Birch
 
 from parser import load_arff
-# from preprocessing import preprocess
-# from metrics import evaluate
+from preprocessing import preprocess
+from metrics import evaluate
 
 DATASETS = ["satimage", "kr-vs-kp", "horse-colic"]
 
