@@ -135,13 +135,13 @@ def evaluate_clustering(X, y_true, labels, metric="euclidean"):
     Compute comprehensive internal and external clustering validation metrics.
     
     Internal:
-      - silhouette: separation & cohesion (range [-1, 1], higher is better)
-      - davies_bouldin: cluster similarity (lower is better, >= 0)
-      - calinski_harabasz: variance ratio (higher is better)
+      - Silhouette: separation & cohesion (range [-1, 1], higher is better)
+      - Davies-Bouldin: cluster similarity (lower is better, >= 0)
+      - Calinski-Harabasz: variance ratio (higher is better)
     External:
-      - ari (Adjusted Rand Index): agreement with ground truth adjusted for chance
-      - purity: fraction of dominant ground-truth class per cluster
-      - f_measure: weighted F1-measure under optimal majority mapping
+      - ARI (Adjusted Rand Index): agreement with ground truth adjusted for chance
+      - Purity: fraction of dominant ground-truth class per cluster
+      - F-measure: weighted F1-measure under optimal majority mapping
     """
     from sklearn.metrics import (
         silhouette_score,
@@ -159,20 +159,20 @@ def evaluate_clustering(X, y_true, labels, metric="euclidean"):
 
     results = {
         "n_clusters": n_clusters,
-        "n_noise": n_noise,
+        "noise_points": n_noise,
         "noise_ratio": round(noise_ratio, 4),
-        "silhouette": None,
-        "davies_bouldin": None,
-        "calinski_harabasz": None,
-        "ari": None,
-        "purity": None,
-        "f_measure": None,
+        "Silhouette": None,
+        "Davies-Bouldin": None,
+        "Calinski-Harabasz": None,
+        "ARI": None,
+        "Purity": None,
+        "F-measure": None,
     }
 
     # External metrics
-    results["ari"] = round(float(adjusted_rand_score(y_true, labels)), 4)
-    results["purity"] = round(compute_purity(y_true, labels, ignore_noise=True), 4)
-    results["f_measure"] = round(compute_f_measure(y_true, labels, ignore_noise=True), 4)
+    results["ARI"] = round(float(adjusted_rand_score(y_true, labels)), 4)
+    results["Purity"] = round(compute_purity(y_true, labels, ignore_noise=True), 4)
+    results["F-measure"] = round(compute_f_measure(y_true, labels, ignore_noise=True), 4)
 
     # Internal metrics (require at least 2 non-noise clusters and >= 2 points)
     clustered_mask = labels != -1
@@ -187,25 +187,25 @@ def evaluate_clustering(X, y_true, labels, metric="euclidean"):
             try:
                 # Use specified metric for silhouette when feasible
                 sil_metric = metric if metric in ("euclidean", "cosine", "manhattan") else "euclidean"
-                results["silhouette"] = round(
+                results["Silhouette"] = round(
                     float(silhouette_score(X_clustered, labels_clustered, metric=sil_metric)), 4
                 )
             except Exception:
-                results["silhouette"] = None
+                results["Silhouette"] = None
 
             try:
-                results["davies_bouldin"] = round(
+                results["Davies-Bouldin"] = round(
                     float(davies_bouldin_score(X_clustered, labels_clustered)), 4
                 )
             except Exception:
-                results["davies_bouldin"] = None
+                results["Davies-Bouldin"] = None
 
             try:
-                results["calinski_harabasz"] = round(
+                results["Calinski-Harabasz"] = round(
                     float(calinski_harabasz_score(X_clustered, labels_clustered)), 2
                 )
             except Exception:
-                results["calinski_harabasz"] = None
+                results["Calinski-Harabasz"] = None
 
     return results
 
@@ -265,11 +265,11 @@ def run_experiments(dataset_names=("kr-vs-kp", "horse-colic"), output_csv="resul
                             record = {
                                 "dataset": ds_name,
                                 "metric": metric,
-                                "algorithm": algo,
+                                "nn_algorithm": algo,
                                 "eps": eps,
                                 "min_samples": min_samples,
-                                "time_ms": round(elapsed_sec * 1000, 2),
                                 **metrics_dict,
+                                "time": elapsed_sec,
                             }
                             records.append(record)
                         except Exception as e:
@@ -296,8 +296,8 @@ def print_summary_table(df_results, dataset_name, metric):
         return
     # Select default algorithm (auto or brute)
     target_algo = "brute" if metric == "cosine" else "auto"
-    view = subset[subset["algorithm"] == target_algo][
-        ["eps", "min_samples", "n_clusters", "n_noise", "noise_ratio", "silhouette", "ari", "purity", "time_ms"]
+    view = subset[subset["nn_algorithm"] == target_algo][
+        ["eps", "min_samples", "n_clusters", "noise_points", "noise_ratio", "Silhouette", "ARI", "Purity", "time"]
     ]
     print(f"\n--- {dataset_name} | Metric: {metric.upper()} (algorithm={target_algo}) ---")
     print(view.to_string(index=False))
@@ -403,7 +403,7 @@ def generate_plots(output_dir="results/figures", csv_path="results/dbscan_result
     if os.path.exists(csv_path):
         df = pd.read_csv(csv_path)
         for ds_name in ["kr-vs-kp", "horse-colic"]:
-            sub_ds = df[(df["dataset"] == ds_name) & (df["algorithm"].isin(["auto", "brute"]))]
+            sub_ds = df[(df["dataset"] == ds_name) & (df["nn_algorithm"].isin(["auto", "brute"]))]
             if sub_ds.empty:
                 continue
 
@@ -418,7 +418,7 @@ def generate_plots(output_dir="results/figures", csv_path="results/dbscan_result
                     curve = sub_m[sub_m["min_samples"] == ms].sort_values("eps")
                     axes[m_idx, 0].plot(curve["eps"], curve["n_clusters"], marker="o", label=f"min_samples={ms}")
                     axes[m_idx, 1].plot(curve["eps"], curve["noise_ratio"], marker="s", label=f"min_samples={ms}")
-                    axes[m_idx, 2].plot(curve["eps"], curve["silhouette"], marker="^", label=f"min_samples={ms}")
+                    axes[m_idx, 2].plot(curve["eps"], curve["Silhouette"], marker="^", label=f"min_samples={ms}")
 
                 axes[m_idx, 0].set_ylabel(f"{m.upper()}\nClusters (n)")
                 axes[m_idx, 0].grid(True, linestyle="--", alpha=0.5)

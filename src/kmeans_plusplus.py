@@ -126,6 +126,9 @@ class KMeansPlusPlus:
         )
         self.labels_ = np.argmin(distances, axis=1)
 
+        # SSE: sum of squared distances from each point to its own centroid.
+        self.sse_ = float(distances[np.arange(len(X)), self.labels_].sum())
+
         return self
 
     def predict(self, X):
@@ -140,14 +143,14 @@ class KMeansPlusPlus:
 
 
 def run_kmeans_plusplus(X, n_clusters, max_iter=100, seed=None):
-    """Fit K-Means++ and return the cluster labels."""
+    """Fit K-Means++ and return the labels, the SSE and the number of iterations."""
     model = KMeansPlusPlus(
         n_clusters=n_clusters,
         max_iter=max_iter,
         seed=seed
     )
     model.fit(X)
-    return model.labels_
+    return model.labels_, model.sse_, model.n_iter_
 
 
 if __name__ == "__main__":
@@ -177,11 +180,12 @@ if __name__ == "__main__":
                     "k": k,
                     "max_iter": MAX_ITER,
                     "seed": seed,
-                    "n_iter": model.n_iter_,
-                    "time": elapsed
                 }
 
                 row.update(evaluate(X, y, model.labels_))
+                row["sse"] = model.sse_
+                row["iterations"] = model.n_iter_
+                row["time"] = elapsed
                 rows.append(row)
 
                 print(
