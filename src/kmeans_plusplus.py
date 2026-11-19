@@ -1,5 +1,3 @@
-
-
 import os
 import time
 import pandas as pd
@@ -13,7 +11,7 @@ import numpy as np
 
 
 DATASETS = ["satimage", "kr-vs-kp", "horse-colic"]
-N_CLUSTERS = [2, 3, 4, 6, 8]
+N_CLUSTERS = [2, 3, 4, 6, 8, 10]
 MAX_ITER = 100
 SEEDS = [0, 1, 2, 3, 4]
 

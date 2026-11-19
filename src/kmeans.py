@@ -11,7 +11,7 @@ from metrics import evaluate
 DATASETS = ["satimage", "kr-vs-kp", "horse-colic"]
 
 # Parameter values to test
-N_CLUSTERS = [2, 3, 4, 6, 8]
+N_CLUSTERS = [2, 3, 4, 6, 8, 10]
 MAX_ITER = 100
 SEEDS = [0, 1, 2, 3, 4] # K-Means depends on the random initialisation, so each setting is repeated
 
@@ -49,6 +49,8 @@ class KMeans:
             iteration += 1
         self.n_iter_ = iteration
         self.labels_ = self.predict(X)
+        # SSE: sum over all points of the squared distance to the centroid of their cluster
+        self.sse_ = float(np.sum((X - self.centroids[self.labels_]) ** 2))
         return self.centroids, self.labels_
 
     def predict(self, X):
@@ -56,10 +58,10 @@ class KMeans:
         return np.array([np.argmin(euclidean(x, self.centroids)) for x in X]) # closest centroid index for each sample
 
 def run_kmeans(X, n_clusters, max_iter, seed):
-    """Fit our K-Means on X and return the cluster label of each sample."""
+    """Fit our K-Means on X and return the labels, the SSE and the number of iterations."""
     model = KMeans(n_clusters = n_clusters, max_iter = max_iter, seed = seed)
     model.fit(X)
-    return model.labels_
+    return model.labels_, model.sse_, model.n_iter_
 
 if __name__ == "__main__":
     rows = []
@@ -70,11 +72,13 @@ if __name__ == "__main__":
         for n_clusters in N_CLUSTERS:
             for seed in SEEDS:
                 start = time.time()
-                labels = run_kmeans(X, n_clusters, MAX_ITER, seed)
+                labels, sse, n_iter = run_kmeans(X, n_clusters, MAX_ITER, seed)
                 elapsed = time.time() - start
 
                 row = {"dataset": name, "k": n_clusters, "max_iter": MAX_ITER, "seed": seed}
                 row.update(evaluate(X, y, labels))
+                row["sse"] = sse
+                row["iterations"] = n_iter
                 row["time"] = elapsed
                 rows.append(row)
 

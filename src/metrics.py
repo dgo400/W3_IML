@@ -2,6 +2,7 @@
 import numpy as np
 from sklearn.metrics import adjusted_rand_score
 from sklearn.metrics import davies_bouldin_score
+from sklearn.metrics import silhouette_score
 
 
 def evaluate(X, y, labels):
@@ -20,7 +21,7 @@ def evaluate(X, y, labels):
     Returns
     -------
     dict
-        ARI, Davies-Bouldin, Purity, F-measure,
+        ARI, Silhouette, Davies-Bouldin, Purity, F-measure,
         number of clusters, and number of noise points.
     """
 
@@ -117,8 +118,24 @@ def evaluate(X, y, labels):
     else:
         db_index = float("nan")
 
+    # Silhouette: same rules as Davies-Bouldin (no noise, at least two clusters,
+    # and fewer clusters than points so every point can have a neighbour cluster).
+    if (
+        n_clusters >= 2
+        and len(valid_X) > n_clusters
+    ):
+        try:
+            silhouette = float(
+                silhouette_score(valid_X, valid_labels)
+            )
+        except ValueError:
+            silhouette = float("nan")
+    else:
+        silhouette = float("nan")
+
     return {
         "ARI": ari,
+        "Silhouette": silhouette,
         "Davies-Bouldin": db_index,
         "Purity": purity,
         "F-measure": f_measure,
