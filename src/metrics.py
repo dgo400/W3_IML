@@ -1,6 +1,7 @@
 
 import numpy as np
 from sklearn.metrics import adjusted_rand_score
+from sklearn.metrics import calinski_harabasz_score
 from sklearn.metrics import davies_bouldin_score
 from sklearn.metrics import silhouette_score
 
@@ -21,8 +22,8 @@ def evaluate(X, y, labels):
     Returns
     -------
     dict
-        ARI, Silhouette, Davies-Bouldin, Purity, F-measure,
-        number of clusters, and number of noise points.
+        ARI, Silhouette, Davies-Bouldin, Calinski-Harabasz, Purity,
+        F-measure, number of clusters, number and ratio of noise points.
     """
 
     X = np.asarray(X, dtype=float)
@@ -133,13 +134,29 @@ def evaluate(X, y, labels):
     else:
         silhouette = float("nan")
 
+    # Calinski-Harabasz: same rules as Davies-Bouldin.
+    if (
+        n_clusters >= 2
+        and len(valid_X) > n_clusters
+    ):
+        try:
+            calinski = float(
+                calinski_harabasz_score(valid_X, valid_labels)
+            )
+        except ValueError:
+            calinski = float("nan")
+    else:
+        calinski = float("nan")
+
     return {
         "ARI": ari,
         "Silhouette": silhouette,
         "Davies-Bouldin": db_index,
+        "Calinski-Harabasz": calinski,
         "Purity": purity,
         "F-measure": f_measure,
         "n_clusters": n_clusters,
         "noise_points": noise_points,
+        "noise_ratio": noise_points / len(labels),
     }
 
