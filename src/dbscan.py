@@ -23,13 +23,24 @@ from sklearn.cluster import DBSCAN
 
 # Support execution both from root and src directory
 try:
-    from src.preprocessing import load_dataset
+    from src.parser import load_arff
+    from src.preprocessing import preprocess
+    from src.metrics import evaluate
 except ModuleNotFoundError:
-    from preprocessing import load_dataset
+    from parser import load_arff
+    from preprocessing import preprocess
+    from metrics import evaluate
 
 
+DATASETS = ["satimage", "kr-vs-kp", "horse-colic"]
 VALID_ALGORITHMS = ("auto", "ball_tree", "kd_tree", "brute")
 VALID_METRICS = ("euclidean", "cosine", "manhattan")
+
+
+def load_data(name):
+    """Same preprocessing as the other algorithms: preprocessed X and class labels y."""
+    X, y = load_arff("data/" + name + ".arff")
+    return preprocess(X), y.to_numpy()
 
 
 def validate_dbscan_params(metric, algorithm):
@@ -80,137 +91,7 @@ def run_dbscan(X, eps=0.5, min_samples=5, metric="euclidean", algorithm="auto"):
     return db.labels_, elapsed_sec
 
 
-def compute_purity(y_true, labels, ignore_noise=True):
-    """
-    Compute clustering Purity: sum(max_class_per_cluster) / N.
-    """
-    y_true = np.asarray(y_true)
-    labels = np.asarray(labels)
-    if ignore_noise:
-        mask = (labels != -1)
-        if not np.any(mask):
-            return 0.0
-        y_true = y_true[mask]
-        labels = labels[mask]
-    if len(y_true) == 0:
-        return 0.0
-
-    correct = 0
-    for cluster_id in np.unique(labels):
-        cluster_mask = (labels == cluster_id)
-        _, counts = np.unique(y_true[cluster_mask], return_counts=True)
-        correct += counts.max()
-    return float(correct / len(y_true))
-
-
-def compute_f_measure(y_true, labels, ignore_noise=True):
-    """
-    Compute clustering F-measure: majority class mapped F1 score.
-    """
-    from sklearn.metrics import f1_score
-
-    y_true = np.asarray(y_true)
-    labels = np.asarray(labels)
-    if ignore_noise:
-        mask = (labels != -1)
-        if not np.any(mask):
-            return 0.0
-        y_true = y_true[mask]
-        labels = labels[mask]
-    if len(y_true) == 0:
-        return 0.0
-
-    mapped_pred = np.empty_like(y_true)
-    for cluster_id in np.unique(labels):
-        cluster_mask = (labels == cluster_id)
-        classes, counts = np.unique(y_true[cluster_mask], return_counts=True)
-        majority_class = classes[np.argmax(counts)]
-        mapped_pred[cluster_mask] = majority_class
-
-    return float(f1_score(y_true, mapped_pred, average="weighted", zero_division=0))
-
-
-def evaluate_clustering(X, y_true, labels, metric="euclidean"):
-    """
-    Compute comprehensive internal and external clustering validation metrics.
-    
-    Internal:
-      - Silhouette: separation & cohesion (range [-1, 1], higher is better)
-      - Davies-Bouldin: cluster similarity (lower is better, >= 0)
-      - Calinski-Harabasz: variance ratio (higher is better)
-    External:
-      - ARI (Adjusted Rand Index): agreement with ground truth adjusted for chance
-      - Purity: fraction of dominant ground-truth class per cluster
-      - F-measure: weighted F1-measure under optimal majority mapping
-    """
-    from sklearn.metrics import (
-        silhouette_score,
-        davies_bouldin_score,
-        calinski_harabasz_score,
-        adjusted_rand_score,
-    )
-
-    n_samples = len(labels)
-    unique_labels = set(labels)
-    has_noise = -1 in unique_labels
-    n_clusters = len(unique_labels) - (1 if has_noise else 0)
-    n_noise = int(np.sum(labels == -1))
-    noise_ratio = n_noise / n_samples if n_samples > 0 else 0.0
-
-    results = {
-        "n_clusters": n_clusters,
-        "noise_points": n_noise,
-        "noise_ratio": round(noise_ratio, 4),
-        "Silhouette": None,
-        "Davies-Bouldin": None,
-        "Calinski-Harabasz": None,
-        "ARI": None,
-        "Purity": None,
-        "F-measure": None,
-    }
-
-    # External metrics
-    results["ARI"] = round(float(adjusted_rand_score(y_true, labels)), 4)
-    results["Purity"] = round(compute_purity(y_true, labels, ignore_noise=True), 4)
-    results["F-measure"] = round(compute_f_measure(y_true, labels, ignore_noise=True), 4)
-
-    # Internal metrics (require at least 2 non-noise clusters and >= 2 points)
-    clustered_mask = labels != -1
-    clustered_count = np.sum(clustered_mask)
-
-    if n_clusters >= 2 and clustered_count >= 2:
-        X_clustered = X[clustered_mask]
-        labels_clustered = labels[clustered_mask]
-
-        # Ensure more than 1 distinct label exists among non-noise points
-        if len(set(labels_clustered)) >= 2:
-            try:
-                # Use specified metric for silhouette when feasible
-                sil_metric = metric if metric in ("euclidean", "cosine", "manhattan") else "euclidean"
-                results["Silhouette"] = round(
-                    float(silhouette_score(X_clustered, labels_clustered, metric=sil_metric)), 4
-                )
-            except Exception:
-                results["Silhouette"] = None
-
-            try:
-                results["Davies-Bouldin"] = round(
-                    float(davies_bouldin_score(X_clustered, labels_clustered)), 4
-                )
-            except Exception:
-                results["Davies-Bouldin"] = None
-
-            try:
-                results["Calinski-Harabasz"] = round(
-                    float(calinski_harabasz_score(X_clustered, labels_clustered)), 2
-                )
-            except Exception:
-                results["Calinski-Harabasz"] = None
-
-    return results
-
-
-def run_experiments(dataset_names=("kr-vs-kp", "horse-colic"), output_csv="results/dbscan_results.csv"):
+def run_experiments(dataset_names=DATASETS, output_csv="results/dbscan_results.csv"):
     """
     Run systematic DBSCAN parameter sweep across datasets, metrics, and algorithms.
     """
@@ -218,8 +99,18 @@ def run_experiments(dataset_names=("kr-vs-kp", "horse-colic"), output_csv="resul
 
     records = []
 
-    # Dataset-specific parameter grids
+    # Dataset-specific parameter grids (eps ranges chosen from the k-distance plots)
     grid = {
+        "satimage": {
+            "metrics": ["euclidean", "manhattan", "cosine"],
+            "algorithms": ["auto", "ball_tree", "kd_tree", "brute"],
+            "min_samples_list": [5, 10, 20],
+            "eps_map": {
+                "euclidean": [1.0, 1.5, 2.0, 2.5],
+                "manhattan": [4.0, 6.0, 8.0, 10.0],
+                "cosine": [0.03, 0.05, 0.08, 0.12],
+            },
+        },
         "kr-vs-kp": {
             "metrics": ["euclidean", "manhattan", "cosine"],
             "algorithms": ["auto", "ball_tree", "kd_tree", "brute"],
@@ -246,7 +137,7 @@ def run_experiments(dataset_names=("kr-vs-kp", "horse-colic"), output_csv="resul
         print(f"\n==================================================")
         print(f" Running DBSCAN Experiments on: {ds_name.upper()}")
         print(f"==================================================")
-        X, y_true, feats = load_dataset(ds_name)
+        X, y_true = load_data(ds_name)
         cfg = grid[ds_name]
 
         for metric in cfg["metrics"]:
@@ -261,7 +152,7 @@ def run_experiments(dataset_names=("kr-vs-kp", "horse-colic"), output_csv="resul
                                 X, eps=eps, min_samples=min_samples,
                                 metric=metric, algorithm=algo
                             )
-                            metrics_dict = evaluate_clustering(X, y_true, labels, metric=metric)
+                            metrics_dict = evaluate(X, y_true, labels)
                             record = {
                                 "dataset": ds_name,
                                 "metric": metric,
@@ -315,7 +206,7 @@ def parse_arguments():
     )
     parser.add_argument(
         "--dataset",
-        choices=["kr-vs-kp", "horse-colic"],
+        choices=DATASETS,
         default=None,
         help="Dataset name for targeted single run.",
     )
@@ -376,12 +267,12 @@ def generate_plots(output_dir="results/figures", csv_path="results/dbscan_result
     os.makedirs(output_dir, exist_ok=True)
 
     # 1. k-distance plots
-    fig, axes = plt.subplots(1, 2, figsize=(13, 5))
+    fig, axes = plt.subplots(1, len(DATASETS), figsize=(6.5 * len(DATASETS), 5))
     k = 5
 
-    for idx, ds_name in enumerate(["kr-vs-kp", "horse-colic"]):
+    for idx, ds_name in enumerate(DATASETS):
         ax = axes[idx]
-        X, _, _ = load_dataset(ds_name)
+        X, _ = load_data(ds_name)
         for metric in ["euclidean", "cosine", "manhattan"]:
             nbrs = NearestNeighbors(n_neighbors=k, metric=metric, algorithm="brute").fit(X)
             distances, _ = nbrs.kneighbors(X)
@@ -402,13 +293,14 @@ def generate_plots(output_dir="results/figures", csv_path="results/dbscan_result
     # 2. Parameter sensitivity plots from CSV
     if os.path.exists(csv_path):
         df = pd.read_csv(csv_path)
-        for ds_name in ["kr-vs-kp", "horse-colic"]:
+        for ds_name in DATASETS:
+            # The neighbour search algorithm does not change the labels, only the time
             sub_ds = df[(df["dataset"] == ds_name) & (df["nn_algorithm"].isin(["auto", "brute"]))]
             if sub_ds.empty:
                 continue
 
             metrics = sub_ds["metric"].unique()
-            fig, axes = plt.subplots(len(metrics), 3, figsize=(15, 3.5 * len(metrics)), sharex=False)
+            fig, axes = plt.subplots(len(metrics), 4, figsize=(20, 3.5 * len(metrics)), sharex=False)
             if len(metrics) == 1:
                 axes = np.expand_dims(axes, 0)
 
@@ -419,6 +311,7 @@ def generate_plots(output_dir="results/figures", csv_path="results/dbscan_result
                     axes[m_idx, 0].plot(curve["eps"], curve["n_clusters"], marker="o", label=f"min_samples={ms}")
                     axes[m_idx, 1].plot(curve["eps"], curve["noise_ratio"], marker="s", label=f"min_samples={ms}")
                     axes[m_idx, 2].plot(curve["eps"], curve["Silhouette"], marker="^", label=f"min_samples={ms}")
+                    axes[m_idx, 3].plot(curve["eps"], curve["ARI"], marker="d", label=f"min_samples={ms}")
 
                 axes[m_idx, 0].set_ylabel(f"{m.upper()}\nClusters (n)")
                 axes[m_idx, 0].grid(True, linestyle="--", alpha=0.5)
@@ -432,10 +325,13 @@ def generate_plots(output_dir="results/figures", csv_path="results/dbscan_result
                 axes[m_idx, 2].grid(True, linestyle="--", alpha=0.5)
                 axes[m_idx, 2].legend()
 
+                axes[m_idx, 3].set_ylabel("ARI")
+                axes[m_idx, 3].grid(True, linestyle="--", alpha=0.5)
+                axes[m_idx, 3].legend()
+
                 if m_idx == len(metrics) - 1:
-                    axes[m_idx, 0].set_xlabel("eps")
-                    axes[m_idx, 1].set_xlabel("eps")
-                    axes[m_idx, 2].set_xlabel("eps")
+                    for col in range(4):
+                        axes[m_idx, col].set_xlabel("eps")
 
             fig.suptitle(f"DBSCAN Parameter Sensitivity: {ds_name}", fontsize=14)
             plt.tight_layout()
@@ -459,12 +355,12 @@ if __name__ == "__main__":
         algo = "brute" if args.metric == "cosine" else args.algorithm
         print(f"\n=== DBSCAN Single Run: {args.dataset.upper()} ===")
         print(f"Parameters: eps={args.eps}, min_samples={args.min_samples}, metric={args.metric}, algorithm={algo}")
-        X, y_true, feats = load_dataset(args.dataset)
+        X, y_true = load_data(args.dataset)
         labels, elapsed_sec = run_dbscan(
             X, eps=args.eps, min_samples=args.min_samples,
             metric=args.metric, algorithm=algo
         )
-        metrics = evaluate_clustering(X, y_true, labels, metric=args.metric)
+        metrics = evaluate(X, y_true, labels)
         print(f"\nExecution time: {elapsed_sec * 1000:.2f} ms")
         print("Clustering Results & Metrics:")
         for k, v in metrics.items():
@@ -472,11 +368,11 @@ if __name__ == "__main__":
     else:
         # Default / --sweep behavior
         results_df = run_experiments(
-            dataset_names=["kr-vs-kp", "horse-colic"],
+            dataset_names=DATASETS,
             output_csv=args.output_csv,
         )
 
         # Print summary highlights
-        for ds in ["kr-vs-kp", "horse-colic"]:
+        for ds in DATASETS:
             for m in ["euclidean", "cosine", "manhattan"]:
                 print_summary_table(results_df, ds, m)

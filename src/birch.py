@@ -11,7 +11,7 @@ from metrics import evaluate
 DATASETS = ["satimage", "kr-vs-kp", "horse-colic"]
 
 # Parameter values to test (None = no global clustering step, the subclusters are the clusters)
-THRESHOLDS = [0.1, 0.3, 0.5, 1.0]
+THRESHOLDS = [0.5, 1.0, 2.0, 3.0, 4.0, 5.0]
 BRANCHING_FACTORS = [10, 50, 100]
 N_CLUSTERS = [None, 2, 4, 6, 8]
 
