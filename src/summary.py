@@ -24,7 +24,7 @@ DERIVED_FILES = {"summary.csv", "best_configs.csv", "kmeans_selected_k.csv", "km
 
 # Everything that is a result of the run. Any other column (except seed) is a parameter.
 METRICS = ["ARI", "Silhouette", "Davies-Bouldin", "Calinski-Harabasz", "Purity", "F-measure",
-           "n_clusters", "noise_points", "noise_ratio", "sse", "iterations", "time"]
+           "n_clusters", "noise_points", "noise_ratio", "sse", "cost", "iterations", "time"]
 NOT_PARAMS = set(METRICS) | {"algorithm", "dataset", "seed"}
 
 # Criteria used to choose the best configuration (higher is better for both)
