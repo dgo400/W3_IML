@@ -11,7 +11,8 @@ import numpy as np
 
 
 DATASETS = ["satimage", "kr-vs-kp", "horse-colic"]
-N_CLUSTERS = [2, 3, 4, 6, 8, 10]
+# N_CLUSTERS = [2, 3, 4, 6, 8, 10]
+N_CLUSTERS = list(range(2, 11))
 MAX_ITER = 100
 SEEDS = [0, 1, 2, 3, 4]
 
