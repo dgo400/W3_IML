@@ -1,0 +1,4 @@
+dataset,n_classes,k_elbow,k_silhouette,k_selected
+satimage,6,3,3,3
+kr-vs-kp,2,5,2,2
+horse-colic,2,6,2,2
