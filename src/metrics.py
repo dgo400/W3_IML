@@ -4,7 +4,7 @@ from sklearn.metrics import adjusted_rand_score
 from sklearn.metrics import calinski_harabasz_score
 from sklearn.metrics import davies_bouldin_score
 from sklearn.metrics import silhouette_score
-
+from sklearn.metrics import normalized_mutual_info_score
 
 def evaluate(X, y, labels):
     """
@@ -60,6 +60,8 @@ def evaluate(X, y, labels):
 
     # External evaluation: compare predicted labels with true classes.
     ari = float(adjusted_rand_score(y, labels))
+    # NMI: compare true classes with predicted clusters.
+    nmi = float(normalized_mutual_info_score(y, labels))
 
     # Purity: sum the majority-class count in each predicted group.
     total_correct = 0
@@ -150,6 +152,7 @@ def evaluate(X, y, labels):
 
     return {
         "ARI": ari,
+        "NMI": nmi,
         "Silhouette": silhouette,
         "Davies-Bouldin": db_index,
         "Calinski-Harabasz": calinski,
